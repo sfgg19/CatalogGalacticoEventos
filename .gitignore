@@ -1,0 +1,19 @@
+## Compilación y binarios generados por Visual Studio / .NET
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Archivos y configuraciones internas de Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+## Publicaciones y temporales
+appsettings.Development.json
+*.tmp
+*.log
+.DS_Store
+Thumbs.db

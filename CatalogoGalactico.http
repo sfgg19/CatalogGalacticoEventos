@@ -1,0 +1,6 @@
+@CatalogoGalactico_HostAddress = http://localhost:5250
+
+GET {{CatalogoGalactico_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
