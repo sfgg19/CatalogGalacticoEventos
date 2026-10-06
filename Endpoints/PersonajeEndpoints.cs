@@ -1,72 +1,139 @@
-﻿
-using CatalogoGalactico.Data;
+﻿using Microsoft.AspNetCore.Http;
 using CatalogoGalactico.Models;
+using CatalogoGalactico.Data;
 
-namespace CatalogoGalactico.Endpoints
+namespace CatalogoGalactico.Endpoints;
+
+public static class PersonajeEndpoints
 {
-    public static class PersonajeEndpoints
+    public static void MapPersonajeEndpoints(this RouteGroupBuilder api)
     {
-        public static void MapPersonajeEndpoints(this RouteGroupBuilder api)
+        var group = api.MapGroup("/personajes").WithTags("Personajes");
+
+        // 1. GET /personajes?faccion=Imperio&fuerzaSensitivo=true (Filtros combinados)
+        group.MapGet("/", (string? faccion, bool? fuerzaSensitivo) =>
         {
-            var group = api.MapGroup("/personajes").WithTags("Personajes");
+            var query = GalacticContext.Personajes.AsEnumerable();
 
-            group.MapGet("/", () =>
+            if (!string.IsNullOrWhiteSpace(faccion) && Enum.TryParse<Faccion>(faccion, true, out var f))
             {
-                var data = GalacticContext.Personajes;
-                return Results.Ok(new ApiResponse<List<Personaje>>(data, new PaginacionMeta(1, data.Count, data.Count)));
-            })
-            .WithName("GetPersonajes")
-            .WithSummary("Lista todos los personajes registrados")
-            .Produces<ApiResponse<List<Personaje>>>(StatusCodes.Status200OK);
+                query = query.Where(p => p.Faccion == f);
+            }
 
-            group.MapGet("/{id:int}", (int id) =>
+            if (fuerzaSensitivo.HasValue)
             {
-                var personaje = GalacticContext.Personajes.FirstOrDefault(p => p.Id == id);
-                return personaje is null
-                    ? Results.NotFound(new ApiErrorResponse(new ApiErrorBody("NOT_FOUND", "Personaje no encontrado")))
-                    : Results.Ok(new ApiResponse<Personaje>(personaje));
-            })
-            .WithName("GetPersonajeById")
-            .WithSummary("Obtiene los detalles de un personaje específico por su ID")
-            .Produces<ApiResponse<Personaje>>(StatusCodes.Status200OK)
-            .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
+                query = query.Where(p => p.FuerzaSensitivo == fuerzaSensitivo.Value);
+            }
 
-            group.MapPost("/", (Personaje input) =>
+            var data = query.ToList();
+            return Results.Ok(new ApiResponse<List<Personaje>>(data, new PaginacionMeta(1, data.Count, data.Count)));
+        })
+        .WithName("GetPersonajes")
+        .WithSummary("Lista personajes con filtros opcionales por facción y fuerzaSensitivo")
+        .Produces<ApiResponse<List<Personaje>>>(StatusCodes.Status200OK);
+
+        // 2. GET /personajes/ranking?por=poder (Ranking de personajes según su carta)
+        group.MapGet("/ranking", (string? por) =>
+        {
+            if (string.IsNullOrWhiteSpace(por) || !por.Equals("poder", StringComparison.OrdinalIgnoreCase))
             {
-                var nuevo = input with { Id = GalacticContext.GenerarId(GalacticContext.Personajes, p => p.Id) };
-                GalacticContext.Personajes.Add(nuevo);
-                return Results.Created($"/api/personajes/{nuevo.Id}", new ApiResponse<Personaje>(nuevo));
-            })
-            .WithName("CreatePersonaje")
-            .WithSummary("Crea un nuevo personaje y lo añade al catálogo")
-            .Produces<ApiResponse<Personaje>>(StatusCodes.Status201Created)
-            .Produces<ApiErrorResponse>(StatusCodes.Status400BadRequest);
+                return Results.BadRequest(new ApiErrorResponse(new ApiErrorBody(
+                    "BAD_REQUEST",
+                    "Criterio de ordenamiento no válido. Usa '?por=poder'",
+                    new List<ErrorDetalle> { new("por", "Debe especificarse el valor 'poder'") }
+                )));
+            }
 
-            group.MapPut("/{id:int}", (int id, Personaje input) =>
+            var ranking = (from p in GalacticContext.Personajes
+                           join c in GalacticContext.Cartas on p.Id equals c.PersonajeId
+                           orderby c.Poder descending
+                           select new
+                           {
+                               PersonajeId = p.Id,
+                               Nombre = p.Nombre,
+                               Faccion = p.Faccion.ToString(),
+                               Poder = c.Poder,
+                               CartaId = c.Id
+                           }).ToList();
+
+            return Results.Ok(new ApiResponse<object>(ranking, new PaginacionMeta(1, ranking.Count, ranking.Count)));
+        })
+        .WithName("GetRankingPersonajes")
+        .WithSummary("Ordena personajes según el poder de su carta coleccionable")
+        .Produces<ApiResponse<object>>(StatusCodes.Status200OK)
+        .Produces<ApiErrorResponse>(StatusCodes.Status400BadRequest);
+
+        // 3. GET /personajes/{id}/eventos (Eventos relacionados con el personaje)
+        group.MapGet("/{id:int}/eventos", (int id) =>
+        {
+            var personaje = GalacticContext.Personajes.FirstOrDefault(p => p.Id == id);
+            if (personaje is null)
             {
-                var index = GalacticContext.Personajes.FindIndex(p => p.Id == id);
-                if (index == -1) return Results.NotFound(new ApiErrorResponse(new ApiErrorBody("NOT_FOUND", "Personaje no encontrado")));
+                return Results.NotFound(new ApiErrorResponse(new ApiErrorBody("NOT_FOUND", "Personaje no encontrado")));
+            }
 
-                var actualizado = input with { Id = id };
-                GalacticContext.Personajes[index] = actualizado;
-                return Results.Ok(new ApiResponse<Personaje>(actualizado));
-            })
-            .WithName("UpdatePersonaje")
-            .WithSummary("Actualiza todos los datos de un personaje existente")
-            .Produces<ApiResponse<Personaje>>(StatusCodes.Status200OK)
-            .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
+            var eventos = GalacticContext.Eventos
+                .Where(e => e.Participantes.Contains(id))
+                .OrderBy(e => e.Fecha) // Orden cronológico ABY/BBY
+                .ToList();
 
-            group.MapDelete("/{id:int}", (int id) =>
-            {
-                var eliminados = GalacticContext.Personajes.RemoveAll(p => p.Id == id);
-                return eliminados > 0
-                    ? Results.NoContent()
-                    : Results.NotFound(new ApiErrorResponse(new ApiErrorBody("NOT_FOUND", "Personaje no encontrado")));
-            })
-            .WithName("DeletePersonaje")
-            .WithSummary("Elimina un personaje del catálogo")
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
-        }
+            return Results.Ok(new ApiResponse<List<Evento>>(eventos, new PaginacionMeta(1, eventos.Count, eventos.Count)));
+        })
+        .WithName("GetEventosByPersonaje")
+        .WithSummary("Devuelve los eventos en los que participa o participó un personaje")
+        .Produces<ApiResponse<List<Evento>>>(StatusCodes.Status200OK)
+        .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
+
+        // 4. GET /personajes/{id}
+        group.MapGet("/{id:int}", (int id) =>
+        {
+            var personaje = GalacticContext.Personajes.FirstOrDefault(p => p.Id == id);
+            return personaje is null
+                ? Results.NotFound(new ApiErrorResponse(new ApiErrorBody("NOT_FOUND", "Personaje no encontrado")))
+                : Results.Ok(new ApiResponse<Personaje>(personaje));
+        })
+        .WithName("GetPersonajeById")
+        .WithSummary("Obtiene los detalles de un personaje por su ID")
+        .Produces<ApiResponse<Personaje>>(StatusCodes.Status200OK)
+        .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
+
+        // 5. POST /personajes
+        group.MapPost("/", (Personaje input) =>
+        {
+            var nuevo = input with { Id = GalacticContext.GenerarId(GalacticContext.Personajes, p => p.Id) };
+            GalacticContext.Personajes.Add(nuevo);
+            return Results.Created($"/api/personajes/{nuevo.Id}", new ApiResponse<Personaje>(nuevo));
+        })
+        .WithName("CreatePersonaje")
+        .WithSummary("Crea un nuevo personaje")
+        .Produces<ApiResponse<Personaje>>(StatusCodes.Status201Created);
+
+        // 6. PUT /personajes/{id}
+        group.MapPut("/{id:int}", (int id, Personaje input) =>
+        {
+            var index = GalacticContext.Personajes.FindIndex(p => p.Id == id);
+            if (index == -1) return Results.NotFound(new ApiErrorResponse(new ApiErrorBody("NOT_FOUND", "Personaje no encontrado")));
+
+            var actualizado = input with { Id = id };
+            GalacticContext.Personajes[index] = actualizado;
+            return Results.Ok(new ApiResponse<Personaje>(actualizado));
+        })
+        .WithName("UpdatePersonaje")
+        .WithSummary("Actualiza los datos de un personaje")
+        .Produces<ApiResponse<Personaje>>(StatusCodes.Status200OK)
+        .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
+
+        // 7. DELETE /personajes/{id}
+        group.MapDelete("/{id:int}", (int id) =>
+        {
+            var eliminados = GalacticContext.Personajes.RemoveAll(p => p.Id == id);
+            return eliminados > 0
+                ? Results.NoContent()
+                : Results.NotFound(new ApiErrorResponse(new ApiErrorBody("NOT_FOUND", "Personaje no encontrado")));
+        })
+        .WithName("DeletePersonaje")
+        .WithSummary("Elimina un personaje del catálogo")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
     }
 }
