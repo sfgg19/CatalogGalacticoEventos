@@ -11,6 +11,7 @@ public static class PersonajeEndpoints
         var group = api.MapGroup("/personajes").WithTags("Personajes");
 
         // 1. GET /personajes?faccion=Imperio&fuerzaSensitivo=true (Filtros combinados)
+        /*
         group.MapGet("/", (string? faccion, bool? fuerzaSensitivo) =>
         {
             var query = GalacticContext.Personajes.AsEnumerable();
@@ -31,6 +32,31 @@ public static class PersonajeEndpoints
         .WithName("GetPersonajes")
         .WithSummary("Lista personajes con filtros opcionales por facción y fuerzaSensitivo")
         .Produces<ApiResponse<List<Personaje>>>(StatusCodes.Status200OK);
+        */
+
+        group.MapGet("/", (string? faccion, bool? fuerzaSensitivo) =>
+        {
+            var query = GalacticContext.Personajes.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(faccion) && Enum.TryParse<Faccion>(faccion, true, out var f))
+            {
+                query = query.Where(p => p.Faccion == f);
+            }
+
+            if (fuerzaSensitivo.HasValue)
+            {
+                query = query.Where(p => p.FuerzaSensitivo == fuerzaSensitivo.Value);
+            }
+
+            var data = query.ToList();
+
+            // SOLUCIÓN: Retornamos la lista 'data' directamente sin ApiResponse
+            return Results.Ok(data);
+        })
+        .WithName("GetPersonajes")
+        .WithSummary("Lista personajes con filtros opcionales por facción y fuerzaSensitivo")
+        .Produces<List<Personaje>>(StatusCodes.Status200OK); // 💡 Ajustado el tipo esperado en Swagger
+
 
         // 2. GET /personajes/ranking?por=poder (Ranking de personajes según su carta)
         group.MapGet("/ranking", (string? por) =>
@@ -135,5 +161,33 @@ public static class PersonajeEndpoints
         .WithSummary("Elimina un personaje del catálogo")
         .Produces(StatusCodes.Status204NoContent)
         .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound);
+
+        // Tarea 2 - Ficha de combate: Combina Personaje con su Carta
+        group.MapGet("/{id:int}/con-card", (int id) =>
+        {
+            var personaje = GalacticContext.Personajes.FirstOrDefault(p => p.Id == id);
+            if (personaje is null)
+            {
+                return Results.NotFound(new { codigo = "NOT_FOUND", mensaje = "Personaje no encontrado" });
+            }
+
+            var card = GalacticContext.Cartas.FirstOrDefault(c => c.PersonajeId == id);
+
+            var fichaCombate = new
+            {
+                Personaje = personaje,
+                Carta = card,
+                Card = card,   
+                Stats = card   
+            };
+
+            return Results.Ok(fichaCombate);
+        })
+        .WithName("GetPersonajeConCard")
+        .WithSummary("Obtiene la ficha de combate combinando datos del personaje y su carta")
+        .Produces<object>(StatusCodes.Status200OK)
+        .Produces<object>(StatusCodes.Status404NotFound);
+
+
     }
 }
