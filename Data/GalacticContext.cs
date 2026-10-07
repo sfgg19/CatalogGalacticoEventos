@@ -7,12 +7,12 @@ namespace CatalogoGalactico.Data
     {
         public static List<Personaje> Personajes = new()
     {
-        new(1, "Luke Skywalker", "Humano", Faccion.Rebelde, "Jedi", Estado.Vivo, true),
-        new(2, "Darth Vader", "Humano/Cyborg", Faccion.Imperio, "Sith", Estado.Vivo, true),
-        new(3, "Han Solo", "Humano", Faccion.Rebelde, "Contrabandista", Estado.Vivo, false),
-        new(4, "Boba Fett", "Clon", Faccion.Neutral, "Cazarrecompensas", Estado.Vivo, false),
-        new(5, "Emperador Palpatine", "Humano", Faccion.Imperio, "Sith", Estado.Vivo, true),
-        new(6, "Obi-Wan Kenobi", "Humano", Faccion.Rebelde, "Jedi", Estado.Muerto, true)
+        new(1, "Luke Skywalker", "Humano", Faccion.Rebelde, "Jedi", Estado.Vivo, true, "https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/2BB6630FA1F41C1DF4BE34E84893CE2496534215BD92C291BC5228D85BA001E9/compose?format=webp&width=1920"),
+        new(2, "Darth Vader", "Humano/Cyborg", Faccion.Imperio, "Sith", Estado.Vivo, true, "https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/0C68420F47A554086E69B94C1E731DEABEBD41A47387F514DDF7454E345EEA73/compose?format=webp&width=1920"),
+        new(3, "Han Solo", "Humano", Faccion.Rebelde, "Contrabandista", Estado.Vivo, false, "https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/718F2ADDC24AFEE31402B43BC1BE064BE80E054FF4EB6AC42E913CC281F81FBA/compose?format=webp&width=1920"),
+        new(4, "Boba Fett", "Clon", Faccion.Neutral, "Cazarrecompensas", Estado.Vivo, false, "https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/D79E56C65C09B7C30D484801A2F4245DA84AF3B3C48C6385ACE123E950E2F608/compose?format=webp&width=1920"),
+        new(5, "Emperador Palpatine", "Humano", Faccion.Imperio, "Sith", Estado.Vivo, true, "https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/8AEA2921639F4101E99D2A4C826E87AB9357B4C55FC2E36FD65FB0EFE8902254/compose?format=webp&width=1920"),
+        new(6, "Obi-Wan Kenobi", "Humano", Faccion.Rebelde, "Jedi", Estado.Muerto, true, "https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/85880178035A8ED309FDC63CFA783887462CC89E7E1DA90212722225664E9495/compose?format=webp&width=1920")
     };
 
         public static List<CardPersonaje> Cartas = new()

@@ -15,7 +15,8 @@ public static class EventoEndpoints
         group.MapGet("/", () =>
         {
             var data = GalacticContext.Eventos;
-            return Results.Ok(new ApiResponse<List<Evento>>(data, new PaginacionMeta(1, data.Count, data.Count)));
+            //return Results.Ok(new ApiResponse<List<Evento>>(data, new PaginacionMeta(1, data.Count, data.Count)));
+            return Results.Ok(data);
         })
         .WithName("GetEventos")
         .WithSummary("Lista todos los eventos históricos")
@@ -60,6 +61,7 @@ public static class EventoEndpoints
         .Produces<ApiErrorResponse>(StatusCodes.Status404NotFound)
         .Produces<ApiErrorResponse>(StatusCodes.Status400BadRequest);
 
+        /*
         // POST /eventos/{id}/simular (Simulación de batalla)
         group.MapPost("/{id:int}/simular", (int id, IBatallaService batallaService) =>
         {
@@ -84,6 +86,93 @@ public static class EventoEndpoints
         .WithSummary("Simula el resultado de la batalla en base a las cartas de los participantes")
         .Produces<ApiResponse<object>>(StatusCodes.Status200OK)
         .Produces<ApiErrorResponse>(StatusCodes.Status400BadRequest);
+        */
+
+        // POST /eventos/{id}/simular (Simulación de batalla)
+        group.MapPost("/{id:int}/simular", (int id, IBatallaService batallaService) =>
+        {
+            try
+            {
+                var resultado = batallaService.SimularBatalla(id);
+
+                var evento = GalacticContext.Eventos.FirstOrDefault(e => e.Id == id);
+
+                if (evento is not null)
+                {
+                    var eventoActualizado = evento with { ResultadoGanador = resultado.Ganador };
+
+                    var index = GalacticContext.Eventos.IndexOf(evento);
+                    if (index != -1)
+                    {
+                        GalacticContext.Eventos[index] = eventoActualizado;
+                    }
+
+                    evento = eventoActualizado;
+                }
+
+                Personaje? rebelde = null;
+                Personaje? imperio = null;
+
+                if (evento?.Participantes is not null)
+                {
+                    foreach (var pId in evento.Participantes)
+                    {
+                        var pFull = GalacticContext.Personajes.FirstOrDefault(p => p.Id == pId);
+                        if (pFull is not null)
+                        {
+                            if ((int)pFull.Faccion == 0)
+                            {
+                                rebelde = pFull;
+                            }
+                            else if ((int)pFull.Faccion == 1)
+                            {
+                                imperio = pFull;
+                            }
+                        }
+                    }
+                }
+
+                var personajeGanador = resultado.Ganador != null && resultado.Ganador.Contains("Rebelde", StringComparison.OrdinalIgnoreCase)
+                    ? rebelde
+                    : imperio;
+
+                return Results.Ok(new
+                {
+                    Mensaje = "Simulación completada",
+                    Ganador = resultado.Ganador,
+                    ResultadoGanador = resultado.Ganador, 
+                    PuntosRebelde = resultado.TotalRebelde,
+                    PuntosImperio = resultado.TotalImperio,
+                    Explicacion = resultado.Criterio,
+
+                    Evento = evento,
+
+                    Participante1 = rebelde,
+                    Participante2 = imperio,
+                    ParticipanteRebelde = rebelde,
+                    ParticipanteImperio = imperio,
+
+                    PersonajeGanador = personajeGanador,
+                    GanadorPersonaje = personajeGanador,
+
+                    Image = personajeGanador?.Image, 
+                    FotoGanador = personajeGanador?.Image
+                });
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { codigo = "BAD_REQUEST", mensaje = ex.Message });
+            }
+        })
+        .WithName("SimularBatallaEvento")
+        .WithSummary("Simula el resultado de la batalla en base a las cartas de los participantes")
+        .Produces<object>(StatusCodes.Status200OK)
+        .Produces<object>(StatusCodes.Status400BadRequest);
+
+
+
+
+
 
         // GET /eventos/{id}
         group.MapGet("/{id:int}", (int id) =>
